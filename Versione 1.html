@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>MedicalBroker Srl — Analisi di Bilancio</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light only">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+:root{
+ color-scheme: light only;
+ --ink:#111113;
+ --bg:#d1d2d7; --card:#ffffff; --text:#17181c; --muted:#68686c; --border:#e5e4df;
+ --accent:#e8562b; --good:#1f8a53; --warn:#c8790a; --bad:#c23b3b; --thead:#efeeea;
+ --note-blue:#0e56b3;
+ --hdr-chart:#2f6bff;
+ --box-bg:#2c2c30; --box-border:#3d3d42; --box-text:#f1f1ee; --box-muted:#d8d8db;
+ --comment-bg:#e8f2fc; --comment-border:#bcd9f5; --comment-text:#122438; --comment-muted:#3d5c78;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:15.5px}
+header{position:relative;background:var(--ink);color:#f5f5f3;padding:44px 32px 0;border-bottom:3px solid var(--accent);overflow:hidden}
+header .chartbg{position:absolute;inset:0;width:100%;height:100%;opacity:.16}
+header .chartbg .fill{opacity:.5}
+header .inner{position:relative;z-index:1;padding-bottom:26px}
+.kicker{display:flex;align-items:center;gap:10px;font-size:12px;text-transform:uppercase;letter-spacing:.18em;color:var(--accent);font-weight:800;margin-bottom:14px}
+.kicker::before{content:'';width:22px;height:2px;background:var(--accent);display:inline-block}
+h1{font-size:46px;margin:0 0 12px;font-weight:800;letter-spacing:-.02em;line-height:1.02}
+h1 span{font-weight:300;opacity:.65}
+.sub{color:rgba(245,245,243,.78);font-size:15.5px;max-width:660px;line-height:1.55;font-weight:400}
+.info-strip{display:flex;flex-wrap:wrap;margin-top:26px;border-top:1px solid rgba(245,245,243,.16);position:relative;z-index:1}
+.info-item{padding:14px 26px 14px 0;margin-right:26px;border-right:1px solid rgba(245,245,243,.16)}
+.info-item:last-child{border-right:none;margin-right:0;padding-right:0}.info-source{margin-left:auto;margin-right:0;padding-right:0;border-right:none;text-align:right}
+.info-item .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;color:rgba(245,245,243,.48);font-weight:700}
+.info-item .v{font-size:15px;font-weight:700;color:#f5f5f3;margin-top:4px;letter-spacing:-.01em}
+.info-item .v.accent{color:var(--accent)}
+nav{display:flex;gap:24px;flex-wrap:wrap;padding:0 28px;border-bottom:1px solid var(--border);background:var(--card)}
+nav button{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);padding:15px 1px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;transition:color .15s,border-color .15s}
+nav button:hover{color:var(--text)}
+nav button.active{color:var(--text);border-bottom-color:var(--accent)}
+main{padding:24px 32px 48px;max-width:1500px;margin:0 auto}
+.tab{display:none}
+.tab.active{display:block}
+.feature-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:22px}
+.feature{border:1px solid var(--box-border);border-radius:10px;padding:20px;background:var(--box-bg);min-height:270px}
+.feature .icon{width:34px;height:34px;border-radius:8px;background:var(--ink);color:var(--accent);display:flex;align-items:center;justify-content:center;margin-bottom:12px}
+.feature .icon svg{width:18px;height:18px}
+.feature h4{margin:0 0 4px;font-size:14.5px;font-weight:800;color:var(--box-text)}
+.feature p{margin:0;font-size:14px;color:var(--box-muted);line-height:1.58}
+@media (max-width:900px){.feature-row{grid-template-columns:1fr}.feature{min-height:0}}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:20px}
+.card{background:var(--box-bg);border:1px solid var(--box-border);border-radius:10px;padding:15px 17px}
+.card .lbl{color:var(--box-muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+.card .lbl::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:7px;vertical-align:middle}
+.card .val{font-size:24px;font-weight:800;margin-top:6px;font-variant-numeric:tabular-nums;color:var(--box-text)}
+.chartwrap{background:var(--box-bg);border:1px solid var(--box-border);border-radius:10px;padding:18px;margin-bottom:20px}
+.chartwrap h3{margin:0 0 12px;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--box-muted);font-weight:700}
+canvas{max-height:320px}
+.tblwrap{overflow-x:auto;background:var(--box-bg);border:1px solid var(--box-border);border-radius:10px;margin-bottom:20px}
+table{border-collapse:collapse;width:100%;font-size:14px;table-layout:auto;color:var(--box-text)}
+th,td{padding:11px 16px;border-bottom:1px solid var(--box-border);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left;position:sticky;left:0;background:var(--box-bg);min-width:230px}
+th:not(:first-child),td:not(:first-child){min-width:112px}
+thead th{background:#232327;font-weight:700;position:sticky;top:0;color:var(--box-text);font-size:11.5px;text-transform:uppercase;letter-spacing:.03em}
+tr.sec td{font-weight:700;background:#232327}
+tr.bold td{font-weight:700}
+tr:hover td{background:color-mix(in srgb, var(--accent) 12%, transparent)}
+.note{color:var(--comment-text);font-size:15px;line-height:1.6;margin:22px 0 0;padding:16px 20px 16px 46px;background:linear-gradient(135deg,#f5f9fe,#eaf3fc);border:1px solid var(--comment-border);border-left:4px solid var(--note-blue);border-radius:10px;position:relative;box-shadow:0 2px 8px rgba(17,17,19,.06)}
+.note::before{content:'NOTA';position:absolute;left:16px;top:16px;font-size:10px;font-weight:900;letter-spacing:.12em;color:var(--note-blue);writing-mode:vertical-rl;transform:rotate(180deg)}
+.notes-end{margin-top:26px}
+input.dso{width:72px;text-align:right;background:transparent;border:1px solid var(--box-border);border-radius:4px;color:var(--box-text);padding:4px 6px;font-size:13.5px}
+.score-band{font-size:12px;color:var(--box-muted)}
+.pill{display:inline-block;padding:3px 10px;border-radius:12px;font-weight:700;font-size:13px}
+.pill.ok{background:color-mix(in srgb, var(--good) 18%, transparent);color:var(--good)}
+.pill.bad{background:color-mix(in srgb, var(--bad) 18%, transparent);color:var(--bad)}
+.comment{background:var(--comment-bg);border:1px solid var(--comment-border);border-radius:10px;padding:20px 22px 18px;margin:4px 0 24px;font-size:14.5px;line-height:1.6;position:relative;color:var(--comment-text)}
+.comment::before{content:'\201C';position:absolute;top:-2px;left:18px;font-size:48px;font-family:Georgia,'Times New Roman',serif;color:var(--accent);opacity:.4;line-height:1}
+.comment h4{margin:0 0 10px 34px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--comment-muted);font-weight:800}
+.comment ul{margin:4px 0 0;padding-left:18px}
+.comment li{margin:3px 0}
+footer{text-align:center;color:var(--muted);font-size:12px;padding:20px}
+#scoreTable th:not(:first-child),#scoreTable td:not(:first-child){min-width:132px}
+#scoreTable td:first-child{min-width:290px}
+.bgpicker{position:fixed;top:16px;right:18px;z-index:50;display:flex;align-items:center;gap:8px;background:rgba(17,17,19,.72);backdrop-filter:blur(6px);border:1px solid rgba(245,245,243,.18);border-radius:999px;padding:6px 14px 6px 8px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.bgpicker label{display:flex;align-items:center;cursor:pointer;width:26px;height:26px;border-radius:50%;overflow:hidden;border:2px solid rgba(245,245,243,.55);flex-shrink:0}
+.bgpicker input[type=color]{width:40px;height:40px;margin:-7px;border:none;cursor:pointer;background:none;padding:0}
+.bgpicker span{color:#f5f5f3;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
+.bgpicker button{background:none;border:none;color:rgba(245,245,243,.6);font-size:11px;cursor:pointer;text-decoration:underline;padding:0;font-weight:600}
+.bgpicker button:hover{color:#f5f5f3}
+</style>
+</head>
+<body>
+<div class="bgpicker" title="Cambia colore sfondo pagina">
+ <label for="bgColorInput"><input type="color" id="bgColorInput" value="#d1d2d7"></label>
+ <span>Sfondo</span>
+ <button type="button" id="bgResetBtn">reset</button>
+</div>
+<header>
+ <svg class="chartbg" viewBox="0 0 1200 260" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+   <linearGradient id="hdrFade" x1="0" y1="0" x2="0" y2="1">
+    <stop offset="0%" stop-color="var(--hdr-chart)" stop-opacity=".55"/>
+    <stop offset="100%" stop-color="var(--hdr-chart)" stop-opacity="0"/>
+   </linearGradient>
+  </defs>
+  <polygon class="fill" fill="url(#hdrFade)" points="0,260 0,190 90,205 180,150 270,175 360,110 450,135 540,80 630,100 720,55 810,90 900,40 990,65 1080,20 1200,45 1200,260"/>
+  <polyline fill="none" stroke="var(--hdr-chart)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="0,190 90,205 180,150 270,175 360,110 450,135 540,80 630,100 720,55 810,90 900,40 990,65 1080,20 1200,45"/>
+ </svg>
+ <div class="inner">
+  <div class="kicker">Analisi di bilancio</div>
+  <h1>MedicalBroker <span>Srl</span></h1>
+  <div class="sub">Lettura integrata dei bilanci civilistici: struttura patrimoniale, redditività, flussi di cassa e indici, riclassificati e aggiornati automaticamente ad ogni nuovo esercizio depositato.</div>
+  <div class="info-strip">
+   <div class="info-item"><div class="k">Sede legale</div><div class="v">Pisa (PI)</div></div>
+   <div class="info-item"><div class="k">Settore</div><div class="v">Installazione ascensori e montascale</div></div>
+   <div class="info-item"><div class="k">Partita IVA</div><div class="v">02298600509</div></div>
+   <div class="info-item"><div class="k">Capitale sociale</div><div class="v" id="hdrCapSoc">—</div></div>
+   <div class="info-item"><div class="k">Marchio Commerciale</div><div class="v">Facile Salire</div></div>
+   <div class="info-item info-source"><div class="k">TIPOLOGIA ANALISI</div><div class="v accent">Calcolo automatico</div></div>
+  </div>
+ </div>
+</header>
+<nav id="nav"></nav>
+<main id="main"></main>
+<footer>Cruscotto di analisi di bilancio · Stato patrimoniale, conto economico, rendiconto finanziario, indici e Balance Scorecard 2018–2025</footer>
+
+<script id="app-data" type="application/json">{"years": [2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025], "sp": {"attivita_correnti": [11905.74, 13447, 38967.6, 156806, 620509, 2056708, 981561, 1377061.1900000002], "attivita_immobilizzate": [359, 270, 180, 675, 4582, 7061, 91329, 94148.84], "totale_attivita": [12264.74, 13717, 39147.6, 157481, 625091, 2063769, 1072890, 1471210.0300000003], "passivita_correnti": [9678, 10859, 34517, 126497.47, 536903, 1725009, 739429, 1076014.97], "passivita_consolidate": [0, 0, 0, 825, 2397, 6039, 12256, 22250.57], "totale_passivita": [9678, 10859, 34517, 127322.47, 539300, 1731048, 751685, 1098265.54], "capitale_proprio": [1000, 2587, 2858, 4631, 30159, 85792, 269720, 321205.26], "risultato_esercizio_sp": [1587, 271, 1773, 25528, 55632, 246929, 51485, 51738.93], "patrimonio_netto": [2587, 2858, 4631, 30159, 85791, 332721, 321205, 372944.19]}, "ce": {"valore_produzione_netta": [35892, 60864, 181919, 619603, 1001260.54, 2621941, 4029416, 3160646.5900000003], "totale_oneri_esterni": [-26664, -36797, -159242, -534115, -845308, -1967296, -3299691, -2835116.8000000003], "valore_aggiunto": [9228, 24067, 22677, 85488, 155952.54000000004, 654645, 729725, 325529.79000000004], "costo_personale": [-5480, -21889.68, -15825.32, -42405, -72911, -141109, -223529, -263175.89], "mol_ebitda": [3748, 2177.3199999999997, 6851.68, 43083, 83041.54000000004, 513536, 506196, 62353.90000000002], "ammort_accant": [-876, -90, -796, -155, -535, -1007, -4254, -7583.56], "mon_ebit": [2872, 2087.3199999999997, 6055.68, 42928, 82506.54000000004, 512529, 501942, 54770.340000000026], "saldo_gest_finanziaria": [-62, -92, -209, -166, -100.74000000000001, -142262, -344002, -2083.7200000000003], "risultato_ante_imposte": [2810, 1995.3199999999997, 5846.68, 42762, 82405.80000000003, 370267, 157940, 52686.620000000024], "utile_netto": [1587, 270.3199999999997, 1773.6800000000003, 25528, 55631.740000000034, 246929, 51485, 51769.78000000003]}, "rf": {"utile_esercizio": [1587, 270.3199999999997, 1773.679999999993, 25528, 55631.740000000034, 246929, 51485, 51739.20000000032], "flusso_gestione_reddituale": [5681, 4513.42, 31309.609999999993, 69676.07, 207887.38000000003, 252608, -402642, 268976.6300000004], "flusso_investimento": [-359, 89, 90, -495, -3907, -2479, -84861, -2819.8399999999965], "flusso_finanziamento": [1000, 1105, -1105, 0, 66810, 22781, -19928, 4316.330000000002], "incremento_liquidita": [6322, 5707.42, 30294.609999999993, 69181.07, 270790.38, 272910, -507431, 270473.1200000004], "liquidita_iniziale": [0, 6899, 3274, 22252.53, 92691, 191752, 422431, 458630], "liquidita_finale": ["ed", 3274, 22252.53, 92691, 191752, 422431, 458630, 799269.54]}, "idx": {"roe": [1.587, 0.10475454194047158, 0.6203638908327501, 5.512416324767869, 1.844623495473988, 2.8782287392763894, 0.1908831380691087, 0.16107746803399173], "leverage_indebitamento": [12.26474, 5.302280633938925, 13.697550734779565, 34.005830274238825, 20.726516131171458, 24.0554946848191, 3.9777917840723713, 4.580280005377247], "roi": [0.23416721430702975, 0.15217029962819856, 0.15468841001747236, 0.2725916142264781, 0.1319912460745716, 0.24834610850342262, 0.46784106478762966, 0.037228090403924184], "ros": [0.0804324082112751, 0.03582951404981375, 0.03396800466692096, 0.06939787706643301, 0.08255008186618117, 0.19551504331605268, 0.12457597083691965, 0.017344383229739215], "rotazione_impieghi": [2.911354011581167, 4.247065684916527, 4.5539445585425415, 3.9279532134035215, 1.5989232607732315, 1.270214835090555, 3.755467941727484, 2.1464061253035362], "rigidita_impieghi": [0.02927090178837872, 0.0196836042866516, 0.004597983018116053, 0.004286231354893606, 0.007330132732674122, 0.0034214100512218177, 0.08512429046780191, 0.06399415316656044], "elasticita_impieghi": [0.9707290982116212, 0.9803163957133484, 0.9954020169818839, 0.9957137686451064, 0.9926698672673259, 0.9965785899487782, 0.9148757095321981, 0.9360058468334395], "indice_elasticita": [33.16362116991643, 49.803703703703704, 216.48666666666665, 232.3051851851852, 135.42317765168048, 291.2771562101685, 10.747528167394803, 14.626427579989304], "incid_debiti_breve": [0.7890913301056525, 0.7916454035138879, 0.8817143324239545, 0.8032554403388346, 0.8589197412856688, 0.8358537220008635, 0.6891936731631388, 0.7313809368197414], "incid_debiti_ml": [0, 0, 0, 0.00523872721153663, 0.0038346416761719493, 0.0029261995891982097, 0.01142335188136715, 0.015123992867286254], "autonomia_finanziaria": [0.08153454537152846, 0.18859808996136182, 0.07300575258764266, 0.029406722080758948, 0.04824737518217347, 0.04157054399014618, 0.2513957628461445, 0.21832726357908255], "dipendenza_finanziaria": [0.7890913301056525, 0.7916454035138879, 0.8817143324239545, 0.8084941675503712, 0.8627543829618407, 0.8387799215900617, 0.700617025044506, 0.7465049296870276], "pn_su_passivita": [0.2673072948956396, 0.2631918224514228, 0.13416577338702668, 0.2368709937845221, 0.15907843500834415, 0.19220784172362637, 0.4273133027797548, 0.3395756093740317], "capterzi_su_pn": [9.678, 4.197526091998454, 12.077326801959412, 27.493515439429927, 17.88189263569747, 20.177265945542707, 2.786908646003263, 3.419201603361041], "copertura_globale_immob": [7.206128133704736, 10.585185185185185, 25.727777777777778, 45.90222222222222, 19.24661719773025, 47.976207336071376, 3.6512060791205423, 4.1975531509469475], "autocopertura_immob": [7.206128133704736, 10.585185185185185, 25.727777777777778, 44.68, 18.723483195111307, 47.12094604163716, 3.5170099311281193, 3.9612191716860243], "copertura_immob_passcons": [0, 0, 0, 1.2222222222222223, 0.5231340026189437, 0.8552612944342162, 0.134196147992423, 0.23633397926092345], "current_ratio": [1.2301859888406694, 1.2383276544801547, 1.1289393632123301, 1.239597914487934, 1.1557190032463964, 1.1922882721191599, 1.3274580791394441, 1.2797788398798953], "quick_ratio": [0.7128538954329406, 0.3015010590293766, 0.6446831995828143, 0.7327498328622699, 0.3571445866385548, 0.24488625856444807, 0.6202488677073796, 0.7428052232395986], "acid_test": [1.2301859888406694, 1.2383276544801547, 1.082585392705044, 1.239597914487934, 1.0428811163282754, 1.1624861087681282, 1.276591802593623, 1.2506546911703285]}, "bil": {"ricavi": [35707, 58257, 178276, 618578, 999472.54, 2621430, 4029204, 3157814.22], "costo_produzione_tot": [33020, 58776.68, 177463.32, 575075, 979337, 2160821, 3565086, 3099602.27], "amm_immateriali": [0, 0, 0, 90, 72, 0, 0, 0], "amm_materiali": [876, 90, 796, 65, 463, 1007, 4254, 7583.56], "altri_proventi_fin": [0, 0, 0, 0, 265.26, 0, 135, 0], "interessi_oneri_fin": [62, 92, 209, 166, 366, 142262, 344137, 2099.01], "crediti_clienti": [3038, -144, -563.93, 28156, 20677, 248231, 111108, 315115.04], "disp_liquide": [6899, 3274, 22252.53, 92691, 191752, 422431, 458630, 799269.54], "patrimonio_netto_pn": [2587, 2858, 4631, 30159, 85791, 332721, 321205, 372944.19], "debiti_banche_bt": [390, 3539, 2455, 31391.47, 32102, 28590, 21300, 219075.04], "debiti_fornitori_bt": [3934, 2278, 10740, 19697, 209453, 466914, 351812, 730080.55], "debiti_tributari_bt": [4019, 1764, 4965, 20983, 31133, 143806, 127096, 29891.51], "debiti_previd_bt": [236, 278, 360, 2878, 1672, 13031, 6839, 17942.63], "totale_attivo_bil": [12264.74, 13717, 39147.6, 157481, 625091, 2063769, 1072890, 1471210.0300000003], "imposte_reddito": [1223, 1725, 4073, 17234, 26774.06, 123338, 106455, 916.84]}, "civ": {"attivo": [{"label": "A) CREDITI VERSO SOCI PER VERSAMENTI ANCORA DOVUTI", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "B) IMMOBILIZZAZIONI", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "I Immobilizzazioni Immateriali", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "1) Costi di impianto e di ampliamento", "values": [359, 270, 180, 90, 18, 0, 0, 0], "cls": ""}, {"label": "2) Costi di ricerca, di sviluppo e di pubblicità", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "3) Diritti di brevetto industriale e diritti di utilizzazione delle opere dell'ing.", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "4) Concessioni, licenze, marchi e diritti simili", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "5) Avviamento", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "6) Immobilizzazioni in corso e acconti", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "7) Altre", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "Totale", "values": [359, 270, 180, 90, 18, 0, 0, 0], "cls": "sec"}, {"label": "II Immobilizzazioni Materiali", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "1) Terreni e fabbricati", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "2) Impianti e macchinari", "values": [0, 0, 0, 0, 0, 0, 1076, 1759.8100000000002], "cls": ""}, {"label": "3) Attrezzature industriali e commerciali", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "4) Altri beni", "values": [0, 0, 0, 585, 4564, 7061, 40253, 41424.13], "cls": ""}, {"label": "5) Immobilizzazioni in corso e acconti", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "Totale", "values": [0, 0, 0, 585, 4564, 7061, 41329, 43183.939999999995], "cls": "sec"}, {"label": "III Immobilizzazioni Finanziarie", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "1) Partecipazioni in:", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "a) Imprese controllate", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "b) Imprese collegate", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "c) Imprese controllanti", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "d) Imprese sottoposte al controllo delle controllanti", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "d bis) Altre imprese", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "2) Crediti:", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "a) verso imprese controllate entro 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "a) verso imprese controllate oltre 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "b) verso imprese collegate entro 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "b) verso imprese collegate oltre 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "c) verso controllanti entro 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "c) verso controllanti oltre 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "d) verso altri entro 12 mesi", "values": [0, 0, 0, 0, 0, 0, 593, 593], "cls": ""}, {"label": "d) verso altri oltre 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "3) Altri titoli", "values": [0, 0, 0, 0, 0, 0, 50000, 50964.9], "cls": ""}, {"label": "4) Strumenti finanziari derivati attivi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "Totale", "values": [0, 0, 0, 0, 0, 0, 50593, 51557.9], "cls": "sec"}, {"label": "Totale immobilizzazioni", "values": [359, 270, 180, 675, 4582, 7061, 91922, 94741.84], "cls": "sec"}, {"label": "C) ATTIVO CIRCOLANTE", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "I Rimanenze", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "1) Materie prime, sussidiarie e di consumo", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "2) Prodotti in corso di lavorazione e semilavorati", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "3) Lavori in corso su ordinazione", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "4) Prodotti finiti e merci", "values": [0, 0, 1600, 0, 60583, 51409, 37612, 31338.02], "cls": ""}, {"label": "5) Acconti", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "Totale", "values": [0, 0, 1600, 0, 60583, 51409, 37612, 31338.02], "cls": "sec"}, {"label": "II Crediti", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "1) verso clienti entro 12 mesi", "values": [3038, -144, -563.93, 28156, 20677, 248231, 111108, 315115.04], "cls": ""}, {"label": "1) verso clienti oltre 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "2) verso imprese controllate entro 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "2) verso imprese controllate oltre 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "3) verso imprese collegate entro 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "3) verso imprese collegate oltre 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "4) verso controllanti entro 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "4) verso controllanti oltre 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "5) verso imprese sottoposte al controllo delle controllanti entro 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "5) verso imprese sottoposte al controllo delle controllanti oltre 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "5 bis) crediti tributari entro 12 mesi", "values": [1968.74, 8479, 15679, 35959, 277213, 1238104, 271317, 170719.21], "cls": ""}, {"label": "5 bis) crediti tributari oltre 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "5 ter) imposte anticipate entro 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "5 ter) imposte anticipate oltre 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "5 quater) verso altri entro 12 mesi", "values": [0, 1105, 0, 0, 66810, 89591, 69663, 44979.33], "cls": ""}, {"label": "5 quater) verso altri oltre 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "Totale", "values": [5006.74, 9440, 15115.07, 64115, 364700, 1575926, 452088, 530813.58], "cls": "sec"}, {"label": "III Attività finanziarie che non costituiscono immobilizzazioni", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "1) Partecipazioni in imprese controllate", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "2) Partecipazioni in imprese collegate", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "3) Partecipazioni in imprese controllanti", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "3 bis) Partecipazioni in imprese sottoposte al controllo delle controllanti", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "4) Altre partecipazioni", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "5) Strumenti finanziari derivati attivi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "6) Altri titoli", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "Totale", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": "sec"}, {"label": "IV Disponibilità liquide", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "1) Depositi bancari e postali", "values": [6809, 3184, 22221.53, 92660, 191721, 422400, 458598, 795783.76], "cls": ""}, {"label": "2) Assegni", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "3) Denaro e valori in cassa", "values": [90, 90, 31, 31, 31, 31, 32, 3485.78], "cls": ""}, {"label": "Totale", "values": [6899, 3274, 22252.53, 92691, 191752, 422431, 458630, 799269.54], "cls": "sec"}, {"label": "Totale attivo circolante", "values": [11905.74, 12714, 38967.6, 156806, 617035, 2049766, 948330, 1361421.1400000001], "cls": "sec"}, {"label": "D) RATEI E RISCONTI ATTIVI", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "Ratei attivi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "Risconti attivi", "values": [0, 733, 0, 0, 3474, 6942, 32638, 15047.05], "cls": ""}, {"label": "Totale", "values": [0, 733, 0, 0, 3474, 6942, 32638, 15047.05], "cls": "sec"}, {"label": "TOTALE ATTIVO", "values": [12264.74, 13717, 39147.6, 157481, 625091, 2063769, 1072890, 1471210.0300000003], "cls": "sec bold"}], "passivo": [{"label": "A) PATRIMONIO NETTO", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "I Capitale sociale", "values": [1000, 1000, 1000, 1000, 1000, 1000, 1000, 30000], "cls": ""}, {"label": "II Riserva da sopraprezzo delle azioni", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "III Riserve di rivalutazione", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "IV Riserva legale", "values": [0, 1587, 1858, 1858, 3135, 3135, 9000, 8999.65], "cls": ""}, {"label": "V Riserva per azioni proprie in portafoglio", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "VI Riiserve statutarie", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "VII Altre riserve: VERSAMENTO SOCI IN C/CAPITALE", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "VII Altre riserve: RISERVA DI TRADUZIONE", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "VII Altre riserve: RISERVA PER COPERTURA PERDITE", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "VII Altre riserve: RISERVA STRAORDINARIA", "values": [0, 0, 0, 1773, 26024, 81657, 259720, 282205.61], "cls": ""}, {"label": "VII Altre riserve:  RISERVA TASSATA L. 516/82", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "VII Altre riserve: UTILI INDIVISI CONTROLLATE E ALTRE RISERVE", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "VII Altre riserve:", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "VIII Utili (perdite) portati a nuovo", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "IX Utile (perdita) dell'esercizio", "values": [1587, 271, 1773, 25528, 55632, 246929, 51485, 51738.93], "cls": ""}, {"label": "Totale", "values": [2587, 2858, 4631, 30159, 85791, 332721, 321205, 372944.19], "cls": "sec bold"}, {"label": "DI TERZI", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "X Capitale e riserve di terzi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "Xi Utile (perdita) di competenza di terzi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "Totale", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": "sec"}, {"label": "B) FONDI PER RISCHI E ONERI", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "1) Per trattamento di quiescenza e obblighi simili", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "2) Per imposte", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "3) Strumenti finanziari derivati passivi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "4) Altri", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "Totale", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": "sec"}, {"label": "C) TRATTAMENTO DI FINE RAPPORTO", "values": [0, 0, 0, 825, 2397, 6039, 12256, 22250.57], "cls": ""}, {"label": "D) DEBITI", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "1) Obbligazioni entro 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "1) Obbligazioni oltre 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "2) Obbligazioni convertibili entro 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "2) Obbligazioni convertibili oltre 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "3) debiti verso soci per finanziamenti entro 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "3) debiti verso soci per finanziamenti oltre 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "4) Debiti verso banche entro 12 mesi", "values": [390, 3539, 2455, 31391.47, 32102, 28590, 21300, 219075.04], "cls": ""}, {"label": "4) Debiti verso banche oltre 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "5) Debiti verso altri finanziatori entro 12 mesi", "values": [0, 0, 0, 0, 0, 225, 409, 225.6], "cls": ""}, {"label": "5) Debiti verso altri finanziatori oltre 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "6) Acconti entro 12 mesi", "values": [0, 0, 0, 0, 253339, 1041820, 208537, 53557.5], "cls": ""}, {"label": "6) Acconti oltre 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "7) Debiti verso fornitori entro 12 mesi", "values": [3934, 2278, 10740, 19697, 209453, 466914, 351812, 730080.55], "cls": ""}, {"label": "7) Debiti verso fornitori oltre 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "8) Debiti rappresentati da titoli di credito entro 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "8) Debiti rappresentati da titoli di credito oltre 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "9) Debiti verso imprese controllate entro 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "9) Debiti verso imprese controllate oltre 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "10) Debiti verso imprese collegate entro 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "10) Debiti verso imprese collegate oltre 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "11) Debiti verso controllanti entro 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "11) Debiti verso controllanti oltre 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "11 bis) debiti verso imprese sottoposte al controllo delle controllanti entro 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "11 bis) debiti verso imprese sottoposte al controllo delle controllanti oltre 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "12) Debiti tributari entro 12 mesi", "values": [4019, 1764, 4965, 20983, 31133, 143806, 127096, 29891.51], "cls": ""}, {"label": "12) Debiti tributari oltre 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "13) Debiti verso istituti di previdenza e di sicurezza sociale entro 12 mesi", "values": [236, 278, 360, 2878, 1672, 13031, 6839, 17942.63], "cls": ""}, {"label": "13) Debiti verso istituti di previdenza e di sicurezza sociale oltre 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "14) Altri debiti entro 12 mesi", "values": [1099, 3000, 3000, 11356, 5387, 23645, 17892, 15813.91], "cls": ""}, {"label": "14) Altri debiti oltre 12 mesi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "Totale", "values": [9678, 10859, 21520, 86305.47, 533086, 1718031, 733885, 1066586.74], "cls": "sec"}, {"label": "E) RATEI E RISCONTI PASSIVI", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "Ratei passivi", "values": [0, 0, 0, 1292, 3817, 6978, 5544, 9428.23], "cls": ""}, {"label": "Risconti passivi", "values": [0, 0, 12997, 38900, 0, 0, 0, 0], "cls": ""}, {"label": "Totale ratei e risconti passivi", "values": [0, 0, 12997, 40192, 3817, 6978, 5544, 9428.23], "cls": "sec"}, {"label": "TOTALE PASSIVO", "values": [12265, 13717, 39148, 157481.47, 625091, 2063769, 1072890, 1471209.73], "cls": "sec bold"}], "ce": [{"label": "A) VALORE DELLA PRODUZIONE", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "1) Ricavi delle vendite e delle prestazioni", "values": [35707, 58257, 178276, 618578, 999472.54, 2621430, 4029204, 3157814.22], "cls": ""}, {"label": "2) Variazioni delle rimanenze di prod. in corso di lavoraz., semilav.e finiti", "values": [0, 0, 1600, -1600, 60583, 51409, 37612, -6273.98], "cls": ""}, {"label": "3) Variazioni dei lavori in corso su ordinazione", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "4) Incrementi di immobilizzazioni per lavori interni", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "5) Altri ricavi e proventi", "values": [185, 2607, 3643, 1025, 1788, 511, 212, 2832.3700000000003], "cls": ""}, {"label": "5) Altri ricavi e proventi - contributi in conto esercizio", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "Totale", "values": [35892, 60864, 183519, 618003, 1061843.54, 2673350, 4067028, 3154372.6100000003], "cls": "sec bold"}, {"label": "B) COSTI DELLA PRODUZIONE", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "6) Per materie prime, sussidiarie, di consumo e di merci", "values": [782, 85, 94875, 347414, 634485, 1315448, 2208707, 1861793.11], "cls": ""}, {"label": "7) Per servizi", "values": [23951, 34457, 57391, 177141, 253970, 622379, 1039273, 932375.44], "cls": ""}, {"label": "8) Per godimento di beni di terzi", "values": [936, 1418, 1245, 4354, 8582, 13181, 24944, 27324.37], "cls": ""}, {"label": "9) Per il personale", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "a) salari e stipendi", "values": [5243, 21539.58, 0, 12142, 58508, 103020, 165336, 198454.83], "cls": ""}, {"label": "b) oneri sociali", "values": [237, 256, 95.32, 3669, 12778, 34327, 50168, 54682.94], "cls": ""}, {"label": "c) trattamento di fine rapporto", "values": [0, 94.1, 0, 825, 1571, 3746, 8025, 10038.12], "cls": ""}, {"label": "d) trattamento di quiescenza e simili", "values": [0, 0, 0, 0, 54, 16, 0, 0], "cls": ""}, {"label": "e) altri costi", "values": [0, 0, 15730, 25769, 0, 0, 0, 0], "cls": ""}, {"label": "10) Ammortamenti e svalutazioni", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "a) ammortamento delle immobilizzazioni immateriali", "values": [0, 0, 0, 90, 72, 0, 0, 0], "cls": ""}, {"label": "b) ammortamento delle immobilizzazioni materiali", "values": [876, 90, 796, 65, 463, 1007, 4254, 7583.56], "cls": ""}, {"label": "c) altre svalutazioni delle immobilizzazioni", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "d) svalutazioni dei crediti compresi nell'attivo circol. e delle disp. liquide", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "11) Variazioni delle rimanenze di materie prime, sussid., di cons. e merci", "values": [0, 0, 0, 0, 0, 60583, 51409, 0], "cls": ""}, {"label": "12) Accantonamenti per rischi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "13) Altri accantonamenti", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "14) Oneri diversi di gestione", "values": [995, 837, 7331, 3606, 8854, 7114, 12970, 7349.9], "cls": ""}, {"label": "Totale", "values": [33020, 58776.68, 177463.32, 575075, 979337, 2160821, 3565086, 3099602.27], "cls": "sec"}, {"label": "DIFFERENZA TRA VALORE E COSTI DELLA PRODUZIONE", "values": [2872, 2087.3199999999997, 6055.679999999993, 42928, 82506.54000000004, 512529, 501942, 54770.34000000032], "cls": "sec bold"}, {"label": "C) PROVENTI E ONERI FINANZIARI", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "15) a) Proventi da partecipazioni da imprese controllate", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "15) b) Proventi da partecipazioni da imprese collegate", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "15) c) Proventi da partecipazioni in altre imprese", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "16) Altri proventi finaziari", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "a) da crediti iscritti nelle immobilizzazioni verso imprese controllate", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "a) da crediti iscritti nelle immobilizzazioni verso imprese collegate", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "a) da crediti iscritti nelle immobilizzazioni verso altri", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "b) da titoli iscritti nelle immobilizzazioni che non costit.partecipazioni", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "c) da titoli iscritti nell'attivo circolante che non costit. partecipazioni", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "d) proventi diversi dai precedenti da imprese controllate", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "d) proventi diversi dai precedenti da imprese collegate", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "d) proventi diversi dai precedenti da imprese controllanti", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "d) proventi diversi dai precedenti da altre imprese", "values": [0, 0, 0, 0, 265.26, 0, 135, 0], "cls": ""}, {"label": "17) a) (interessi e altri oneri finanziari verso imprese controllate)", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "b) (interessi e altri oneri finanziari verso imprese collegate)", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "c) (interessi e altri oneri finanziari verso imprese controllanti)", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "d) (interessi e altri oneri finanziari verso altri)", "values": [62, 92, 209, 166, 366, 142262, 344137, 2099.01], "cls": ""}, {"label": "17 bis) utili e perdite su cambi", "values": [0, 0, 0, 0, 0, 0, 0, -15.29], "cls": ""}, {"label": "Totale", "values": [-62, -92, -209, -166, -100.74000000000001, -142262, -344002, -2114.3], "cls": "sec"}, {"label": "D) RETTIFICHE DI VALORE DI ATTIVITA' FINANZIARIE", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "18) Rivalutazioni", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "a) di partecipazioni", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "b) di immobilizzazioni finanziarie che non costituiscono partecipazioni", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "c) di titoli iscritti all'attivo circolante che non costituiscono partecipaz.", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "19) Svalutazioni", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "a) (di partecipazioni)", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "b) (di immobilizzazioni finanziarie che non costituiscono partecipazioni)", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "c) (di titoli iscritti all'attivo circolante che non costituiscono partecipaz.)", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "Totale delle rettifiche", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": "sec"}, {"label": "RISULTATO PRIMA DELLE IMPOSTE", "values": [2810, 1995.3199999999997, 5846.679999999993, 42762, 82405.80000000003, 370267, 157940, 52656.040000000314], "cls": "sec bold"}, {"label": "22) IMPOSTE SUL REDDITO DI ESERCIZIO", "values": [null, null, null, null, null, null, null, null], "cls": "sec bold"}, {"label": "a) (Imposte sul reddito di esercizio)", "values": [1223, 1725, 4073, 17234, 26774.06, 123338, 106455, 916.84], "cls": ""}, {"label": "b) Imposte differite", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "(utile) perdita dell'esercizio di competenza di terzi", "values": [0, 0, 0, 0, 0, 0, 0, 0], "cls": ""}, {"label": "26) UTILE (PERDITA) DELL'ESERCIZIO", "values": [1587, 270.3199999999997, 1773.679999999993, 25528, 55631.740000000034, 246929, 51485, 51739.20000000032], "cls": "sec bold"}]}}</script>
+<script>
+const DATA = JSON.parse(document.getElementById('app-data').textContent);
+const YEARS = DATA.years;
+
+(function setupBgPicker(){
+ const DEFAULT_BG = '#d1d2d7';
+ const input = document.getElementById('bgColorInput');
+ const resetBtn = document.getElementById('bgResetBtn');
+ const STORAGE_KEY = 'bilancioDashboardBg';
+
+ function apply(color){
+  document.documentElement.style.setProperty('--bg', color);
+  if(input) input.value = color;
+ }
+
+ let saved = DEFAULT_BG;
+ try{
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if(stored) saved = stored;
+ }catch(e){}
+ apply(saved);
+
+ if(input){
+  input.addEventListener('input', e=>{
+   const color = e.target.value;
+   apply(color);
+   try{ localStorage.setItem(STORAGE_KEY, color); }catch(e){}
+  });
+ }
+ if(resetBtn){
+  resetBtn.addEventListener('click', ()=>{
+   apply(DEFAULT_BG);
+   try{ localStorage.removeItem(STORAGE_KEY); }catch(e){}
+  });
+ }
+})();
+
+(function setHeaderCapSoc(){
+ try{
+  const row = (DATA.civ.passivo||[]).find(r=>/capitale sociale/i.test(r.label));
+  let v = null;
+  if(row){
+   for(let i=row.values.length-1;i>=0;i--){
+    if(row.values[i]!==null && row.values[i]!==undefined){ v=row.values[i]; break; }
+   }
+  }
+  const el = document.getElementById('hdrCapSoc');
+  if(el && v!==null){
+   el.textContent = '€ ' + Math.round(v).toLocaleString('it-IT');
+  }
+ }catch(e){}
+})();
+const fmt = n => (n===null||n===undefined||isNaN(n)) ? "—" : n.toLocaleString('it-IT',{maximumFractionDigits:0});
+const fmtPct = n => (n===null||n===undefined||isNaN(n)) ? "—" : (n*100).toLocaleString('it-IT',{maximumFractionDigits:1})+"%";
+const fmtNum2 = n => (n===null||n===undefined||isNaN(n)) ? "—" : n.toLocaleString('it-IT',{maximumFractionDigits:2});
+
+function el(tag,attrs={},...kids){
+ const e=document.createElement(tag);
+ for(const k in attrs){ if(k==='class') e.className=attrs[k]; else if(k==='html') e.innerHTML=attrs[k]; else e.setAttribute(k,attrs[k]); }
+ kids.forEach(k=>{ if(typeof k==='string') e.appendChild(document.createTextNode(k)); else if(k) e.appendChild(k); });
+ return e;
+}
+
+function buildTable(rows, fmtFn){
+ // rows: [{label, values, cls}]
+ const wrap = el('div',{class:'tblwrap'});
+ const t = el('table');
+ const thead = el('thead');
+ const trh = el('tr'); trh.appendChild(el('th',{},'Voce'));
+ YEARS.forEach(y=>trh.appendChild(el('th',{},String(y))));
+ thead.appendChild(trh); t.appendChild(thead);
+ const tb = el('tbody');
+ rows.forEach(r=>{
+  const tr = el('tr',{class:r.cls||''});
+  tr.appendChild(el('td',{},r.label));
+  r.values.forEach(v=>tr.appendChild(el('td',{},(r.fmt||fmtFn)(v))));
+  tb.appendChild(tr);
+ });
+ t.appendChild(tb); wrap.appendChild(t);
+ return wrap;
+}
+
+function lineChart(canvasId, series, opts={}){
+ const ctx = document.getElementById(canvasId).getContext('2d');
+ const txt = getComputedStyle(document.documentElement).getPropertyValue('--box-text').trim();
+ new Chart(ctx,{type:'line',data:{labels:YEARS,datasets:series.map((s,i)=>({
+   label:s.label, data:s.data, borderColor:s.color, backgroundColor:s.color+'33',
+   tension:.25, fill:opts.fill||false, pointRadius:3
+ }))},options:{responsive:true,plugins:{legend:{labels:{color:txt}},
+   tooltip:{callbacks:{label:c=> c.dataset.label+': '+(opts.pct? fmtPct(c.raw): fmtNum2(c.raw))}}},
+   scales:{x:{ticks:{color:txt}},y:{ticks:{color:txt, callback:v=> opts.pct? (v*100).toFixed(0)+'%': v},grid:{color:'#8883'}}}}});
+}
+
+function comment(title, lines){
+ const box = el('div',{class:'comment'});
+ box.appendChild(el('h4',{},title));
+ const ul = el('ul');
+ lines.forEach(l=>ul.appendChild(el('li',{},l)));
+ box.appendChild(ul);
+ return box;
+}
+function trendWord(first, last, higherIsBetter=true){
+ if(first===null||last===null||first===undefined||last===undefined||isNaN(first)||isNaN(last)) return 'non valutabile per dati mancanti';
+ const delta = last-first;
+ const dir = delta>0? 'in aumento':(delta<0?'in diminuzione':'stabile');
+ const judg = (delta>0)===higherIsBetter ? 'un segnale positivo' : (delta===0?'':'un segnale da monitorare');
+ return dir+(judg? ' ('+judg+')':'');
+}
+
+/* ---------- TAB: SINTESI ---------- */
+function tabSintesi(){
+ const c = el('div');
+ const last = YEARS.length-1;
+
+ const featureRow = el('div',{class:'feature-row'});
+ const features = [
+  {
+   icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 5-3.5 7.5-7 9-3.5-1.5-7-4-7-9V6l7-3z"/></svg>',
+   title:'Solidità patrimoniale',
+   text:`Nel ${YEARS[last]} l'autonomia finanziaria è ${fmtPct(DATA.idx.autonomia_finanziaria[last])}: il capitale proprio copre quindi poco più di un quinto degli impieghi, mentre la dipendenza da capitale di terzi resta al ${fmtPct(DATA.idx.dipendenza_finanziaria[last])}. Il quadro è comunque molto diverso dal ${YEARS[last-1]}: il patrimonio netto sale a ${fmt(DATA.sp.patrimonio_netto[last])} mila € (+${fmtPct((DATA.sp.patrimonio_netto[last]/DATA.sp.patrimonio_netto[last-1])-1)}), ma le passività totali crescono più rapidamente, fino a ${fmt(DATA.sp.totale_passivita[last])} mila €. La copertura globale delle immobilizzazioni è ${fmtNum2(DATA.idx.copertura_globale_immob[last])}x e l'autocopertura ${fmtNum2(DATA.idx.autocopertura_immob[last])}x: la componente immobilizzata, pari a circa ${fmtPct(DATA.idx.rigidita_impieghi[last])} degli impieghi, risulta quindi ampiamente coperta da fonti stabili/proprie. La struttura finanziaria rimane però esposta alla crescita del debito corrente, soprattutto per debiti verso banche e fornitori."`
+  },
+  {
+   icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 17 9 11 13 15 21 7"/><polyline points="14 7 21 7 21 14"/></svg>',
+   title:'Redditività',
+   text:`La redditività nel ${YEARS[last]} mostra un forte rallentamento operativo. I ricavi scendono a ${fmt(DATA.bil.ricavi[last])} mila € (-${fmtPct(1-DATA.bil.ricavi[last]/DATA.bil.ricavi[last-1])} sul ${YEARS[last-1]}), mentre l'EBITDA passa da ${fmt(DATA.ce.mol_ebitda[last-1])} a ${fmt(DATA.ce.mol_ebitda[last])} mila € e il margine sui ricavi si riduce a ${fmtPct(DATA.ce.mol_ebitda[last]/DATA.bil.ricavi[last])}. Il ROI scende al ${fmtPct(DATA.idx.roi[last])} e il ROS all'${fmtPct(DATA.idx.ros[last])}; anche il ROE si porta al ${fmtPct(DATA.idx.roe[last])}, comunque positivo. Nonostante il marcato calo del risultato operativo, l'utile netto resta sostanzialmente stabile a ${fmt(DATA.ce.utile_netto[last])} mila €, sostenuto dal drastico ridimensionamento del saldo della gestione finanziaria: gli oneri finanziari passano da ${fmt(DATA.bil.interessi_oneri_fin[last-1])} a ${fmt(DATA.bil.interessi_oneri_fin[last])} mila €. Il dato 2025 va quindi letto distinguendo la tenuta dell'utile dalla contrazione della redditività caratteristica."`
+  },
+  {
+   icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c4 5 6 8 6 11a6 6 0 0 1-12 0c0-3 2-6 6-11z"/></svg>',
+   title:'Liquidità',
+   text:`Nel ${YEARS[last]} la liquidità presenta un quadro articolato. Il current test è ${fmtNum2(DATA.idx.current_ratio[last])}x: l'attivo corrente supera le passività a breve, ma con un margine contenuto. Il quick test è ${fmtNum2(DATA.idx.quick_ratio[last])}x, segnalando che, escludendo le rimanenze, le attività prontamente disponibili non coprono integralmente i debiti correnti; l'acid test è invece ${fmtNum2(DATA.idx.acid_test[last])}x. La posizione di cassa è molto più ampia rispetto al ${YEARS[last-1]}, con disponibilità liquide a ${fmt(DATA.bil.disp_liquide[last])} mila € e un flusso di gestione reddituale 2025 positivo per ${fmt(DATA.rf.flusso_gestione_reddituale[last])} mila €, dopo il dato negativo del 2024. Il flusso di investimento resta contenuto e negativo (${fmt(DATA.rf.flusso_investimento[last])} mila €), mentre il flusso di finanziamento è positivo per ${fmt(DATA.rf.flusso_finanziamento[last])} mila €; l'incremento complessivo di liquidità dell'esercizio è così pari a ${fmt(DATA.rf.incremento_liquidita[last])} mila €. La liquidità disponibile è quindi elevata in valore assoluto, ma la struttura dei debiti a breve richiede comunque attenzione."`
+  },
+ ];
+ features.forEach(f=>{
+  featureRow.appendChild(el('div',{class:'feature'},
+   el('div',{class:'icon',html:f.icon}),
+   el('h4',{},f.title),
+   el('p',{},f.text)
+  ));
+ });
+ c.appendChild(featureRow);
+
+ const cards = el('div',{class:'cards'});
+ const kpis = [
+  ['Ricavi '+YEARS[last], fmt(DATA.bil.ricavi[last])+' €'],
+  ['EBITDA (MOL) '+YEARS[last], fmt(DATA.ce.mol_ebitda[last])+' €'],
+  ['Utile netto '+YEARS[last], fmt(DATA.ce.utile_netto[last])+' €'],
+  ['Patrimonio netto '+YEARS[last], fmt(DATA.sp.patrimonio_netto[last])+' €'],
+  ['Totale attivo '+YEARS[last], fmt(DATA.sp.totale_attivita[last])+' €'],
+ ];
+ kpis.forEach(([l,v])=>cards.appendChild(el('div',{class:'card'},el('div',{class:'lbl'},l),el('div',{class:'val'},v))));
+ c.appendChild(cards);
+
+ const cw1 = el('div',{class:'chartwrap'}, el('h3',{},'Ricavi, EBITDA e Utile netto (€)'), el('canvas',{id:'chartCE'}));
+ c.appendChild(cw1);
+ const cw2 = el('div',{class:'chartwrap'}, el('h3',{},'Totale attivo e Patrimonio netto (€)'), el('canvas',{id:'chartSP'}));
+ c.appendChild(cw2);
+ requestAnimationFrame(()=>{
+  lineChart('chartCE',[
+   {label:'Ricavi', data:DATA.bil.ricavi, color:'#e8562b'},
+   {label:'EBITDA', data:DATA.ce.mol_ebitda, color:'#1f8a53'},
+   {label:'Utile netto', data:DATA.ce.utile_netto, color:'#c8790a'},
+  ]);
+  lineChart('chartSP',[
+   {label:'Totale attivo', data:DATA.sp.totale_attivita, color:'#e8562b'},
+   {label:'Patrimonio netto', data:DATA.sp.patrimonio_netto, color:'#1f8a53'},
+  ]);
+ });
+ return c;
+}
+
+/* ---------- TAB: BILANCIO CIVILISTICO (schema ex artt. 2424-2425 c.c.) ---------- */
+function civTable(rows){
+ return buildTable(rows, v=>fmt(v)+' €');
+}
+function tabCivilistico(){
+ const c = el('div');
+ const noteCiv = el('p',{class:'note'},'Bilancio approvato e depositato secondo lo schema di Stato Patrimoniale e Conto Economico previsto dagli artt. 2424 e 2425 del Codice Civile.');
+
+ c.appendChild(el('h3',{},'Stato Patrimoniale — Attivo'));
+ c.appendChild(civTable(DATA.civ.attivo));
+
+ c.appendChild(el('h3',{},'Stato Patrimoniale — Passivo'));
+ c.appendChild(civTable(DATA.civ.passivo));
+
+ c.appendChild(el('h3',{},'Conto Economico'));
+ c.appendChild(civTable(DATA.civ.ce));
+ const notes = el('div',{class:'notes-end'}); notes.appendChild(noteCiv); c.appendChild(notes);
+
+ return c;
+}
+
+/* ---------- TAB: BILANCIO RICLASSIFICATO (Stato Patrimoniale + Conto Economico) ---------- */
+function tabBilancio(){
+ const c = el('div');
+ const last = YEARS.length-1, first = 0;
+
+ c.appendChild(el('h3',{},'Stato Patrimoniale Riclassificato (criteri finanziari)'));
+ const rowsSP = [
+  {label:"Attività a breve (correnti)", values:DATA.sp.attivita_correnti},
+  {label:"Attività immobilizzate", values:DATA.sp.attivita_immobilizzate},
+  {label:"TOTALE ATTIVITÀ (IMPIEGHI)", values:DATA.sp.totale_attivita, cls:'sec'},
+  {label:"Passività a breve (correnti)", values:DATA.sp.passivita_correnti},
+  {label:"Passività a m/l termine", values:DATA.sp.passivita_consolidate},
+  {label:"TOTALE PASSIVITÀ", values:DATA.sp.totale_passivita, cls:'sec'},
+  {label:"Capitale proprio + riserve", values:DATA.sp.capitale_proprio},
+  {label:"Risultato d'esercizio", values:DATA.sp.risultato_esercizio_sp},
+  {label:"PATRIMONIO NETTO", values:DATA.sp.patrimonio_netto, cls:'sec'},
+ ];
+ c.appendChild(buildTable(rowsSP, v=>fmt(v)+' €'));
+ const quotaCorrenti = DATA.sp.attivita_correnti[last]/DATA.sp.totale_attivita[last];
+ const quotaPassCorr = DATA.sp.passivita_correnti[last]/DATA.sp.totale_passivita[last];
+ c.appendChild(comment('Commento allo Stato Patrimoniale', [
+  `Il patrimonio netto è passato da ${fmt(DATA.sp.patrimonio_netto[first])} € (${YEARS[first]}) a ${fmt(DATA.sp.patrimonio_netto[last])} € (${YEARS[last]}), ${trendWord(DATA.sp.patrimonio_netto[first], DATA.sp.patrimonio_netto[last])}.`,
+  `Il totale attività nel ${YEARS[last]} è ${fmt(DATA.sp.totale_attivita[last])} €, composto per il ${fmtPct(quotaCorrenti)} da attività correnti e per il resto da immobilizzazioni.`,
+  `Le passività correnti coprono il ${fmtPct(quotaPassCorr)} del totale passività nel ${YEARS[last]}: una struttura finanziaria ancora sbilanciata verso il breve termine.`,
+ ]));
+
+ c.appendChild(el('h3',{},'Conto Economico Riclassificato (a valore aggiunto)'));
+ const rowsCE = [
+  {label:"Valore della produzione netta", values:DATA.ce.valore_produzione_netta},
+  {label:"Totale oneri esterni", values:DATA.ce.totale_oneri_esterni},
+  {label:"Valore aggiunto", values:DATA.ce.valore_aggiunto, cls:'sec'},
+  {label:"Costo del personale", values:DATA.ce.costo_personale},
+  {label:"MARGINE OPERATIVO LORDO (EBITDA)", values:DATA.ce.mol_ebitda, cls:'sec'},
+  {label:"Ammortamenti e accantonamenti", values:DATA.ce.ammort_accant},
+  {label:"MARGINE OPERATIVO NETTO (EBIT)", values:DATA.ce.mon_ebit, cls:'sec'},
+  {label:"Saldo gestione finanziaria", values:DATA.ce.saldo_gest_finanziaria},
+  {label:"Risultato ante imposte", values:DATA.ce.risultato_ante_imposte},
+  {label:"UTILE NETTO D'ESERCIZIO", values:DATA.ce.utile_netto, cls:'sec bold'},
+ ];
+ c.appendChild(buildTable(rowsCE, v=>fmt(v)+' €'));
+ const margEbitda = DATA.ce.mol_ebitda[last]/DATA.ce.valore_produzione_netta[last];
+ c.appendChild(comment('Commento al Conto Economico', [
+  `Il valore della produzione netta è passato da ${fmt(DATA.ce.valore_produzione_netta[first])} € (${YEARS[first]}) a ${fmt(DATA.ce.valore_produzione_netta[last])} € (${YEARS[last]}).`,
+  `Il MOL (EBITDA) ${YEARS[last]} è ${fmt(DATA.ce.mol_ebitda[last])} €, pari al ${fmtPct(margEbitda)} del valore della produzione netta.`,
+  `L'utile netto d'esercizio ${YEARS[last]} è ${fmt(DATA.ce.utile_netto[last])} €, ${trendWord(DATA.ce.utile_netto[first], DATA.ce.utile_netto[last])} rispetto al ${YEARS[first]}.`,
+ ]));
+
+ return c;
+}
+
+/* ---------- RENDICONTO FINANZIARIO: ricostruzione metodo diretto ---------- */
+function directMethodCompute(){
+ const n = YEARS.length;
+ const r = {incassi:[],pagFornitori:[],pagPersonale:[],interessiNetti:[],impostePagate:[],rettifica:[],flussoOperativo:[]};
+ for(let i=0;i<n;i++){
+  const d = (arr)=> i===0 ? (arr[i]||0) : (arr[i]||0)-(arr[i-1]||0);
+  const incassi = DATA.bil.ricavi[i] - d(DATA.bil.crediti_clienti);
+  const pagFornitori = -(Math.abs(DATA.ce.totale_oneri_esterni[i]) - d(DATA.bil.debiti_fornitori_bt));
+  const pagPersonale = -Math.abs(DATA.ce.costo_personale[i]);
+  const oneriFin = Math.abs(DATA.bil.interessi_oneri_fin[i]||0), provFin = DATA.bil.altri_proventi_fin[i]||0;
+  const interessiNetti = -(oneriFin - provFin);
+  const debitiTribTot = (DATA.bil.debiti_tributari_bt[i]||0)+(DATA.bil.debiti_previd_bt[i]||0);
+  const debitiTribArr = YEARS.map((_,j)=>(DATA.bil.debiti_tributari_bt[j]||0)+(DATA.bil.debiti_previd_bt[j]||0));
+  const impostePagate = -(DATA.bil.imposte_reddito[i] - d(debitiTribArr));
+  const parziale = incassi+pagFornitori+pagPersonale+interessiNetti+impostePagate;
+  const rettifica = DATA.rf.flusso_gestione_reddituale[i] - parziale;
+  r.incassi.push(incassi); r.pagFornitori.push(pagFornitori); r.pagPersonale.push(pagPersonale);
+  r.interessiNetti.push(interessiNetti); r.impostePagate.push(impostePagate); r.rettifica.push(rettifica);
+  r.flussoOperativo.push(parziale+rettifica);
+ }
+ return r;
+}
+
+/* ---------- TAB: RENDICONTO FINANZIARIO ---------- */
+function tabRF(){
+ const c = el('div');
+ c.appendChild(el('h3',{},'Metodo indiretto'));
+ const rowsInd = [
+  {label:"Utile (perdita) dell'esercizio", values:DATA.rf.utile_esercizio},
+  {label:"A) Flusso gestione reddituale", values:DATA.rf.flusso_gestione_reddituale, cls:'sec'},
+  {label:"B) Flusso attività d'investimento", values:DATA.rf.flusso_investimento, cls:'sec'},
+  {label:"C) Flusso attività di finanziamento", values:DATA.rf.flusso_finanziamento, cls:'sec'},
+  {label:"Incremento (decremento) liquidità (A±B±C)", values:DATA.rf.incremento_liquidita, cls:'bold'},
+  {label:"Liquidità iniziale", values:DATA.rf.liquidita_iniziale},
+  {label:"Liquidità finale", values:DATA.rf.liquidita_finale, cls:'sec'},
+ ];
+ c.appendChild(buildTable(rowsInd, v=>fmt(v)+' €'));
+
+ c.appendChild(el('h3',{},'Metodo diretto (ricostruzione)'));
+ const noteRF = el('p',{class:'note'},
+  'Il metodo diretto e quello indiretto differiscono solo nella presentazione del flusso della gestione reddituale (A); i flussi di investimento (B) e finanziamento (C) sono identici. '+
+  'Il bilancio civilistico non riporta incassi/pagamenti effettivi: la scomposizione qui sotto è una ricostruzione basata su ricavi/costi di competenza rettificati per le variazioni dei crediti, debiti commerciali e tributari a bilancio. '+
+  'La riga "Altre variazioni CCN non dettagliate" riconcilia il totale con il flusso A) del metodo indiretto (fonte certa), per garantire la quadratura.');
+ const D = directMethodCompute();
+ const rowsDir = [
+  {label:"Incassi da clienti", values:D.incassi},
+  {label:"Pagamenti a fornitori", values:D.pagFornitori},
+  {label:"Pagamenti al personale", values:D.pagPersonale},
+  {label:"Interessi e proventi finanziari netti", values:D.interessiNetti},
+  {label:"Imposte sul reddito pagate", values:D.impostePagate},
+  {label:"Altre variazioni CCN non dettagliate", values:D.rettifica},
+  {label:"A) Flusso gestione reddituale (metodo diretto)", values:D.flussoOperativo, cls:'sec bold'},
+ ];
+ c.appendChild(buildTable(rowsDir, v=>fmt(v)+' €'));
+
+ const last=YEARS.length-1, first=0;
+ const posYears = DATA.rf.flusso_gestione_reddituale.filter(v=>v>0).length;
+ const negYears = DATA.rf.flusso_gestione_reddituale.filter(v=>v<0).length;
+ c.appendChild(comment('Commento ai risultati', [
+  `Il flusso di cassa della gestione reddituale (A) è positivo in ${posYears} anni su ${YEARS.length} e negativo in ${negYears}; nel ${YEARS[last]} è pari a ${fmt(DATA.rf.flusso_gestione_reddituale[last])} €.`,
+  `La liquidità disponibile a fine ${YEARS[last]} è ${fmt(DATA.rf.liquidita_finale[last])} €, ${trendWord(DATA.rf.liquidita_finale[first], DATA.rf.liquidita_finale[last])} rispetto al ${YEARS[first]} (${fmt(DATA.rf.liquidita_finale[first])} €).`,
+  `Il flusso da investimenti (B) nel ${YEARS[last]} è ${fmt(DATA.rf.flusso_investimento[last])} €: valori negativi indicano investimenti netti nel periodo, valori positivi disinvestimenti.`,
+  `Il flusso da finanziamento (C) nel ${YEARS[last]} è ${fmt(DATA.rf.flusso_finanziamento[last])} €.`,
+ ]));
+ const notes = el('div',{class:'notes-end'}); notes.appendChild(noteRF); c.appendChild(notes);
+ return c;
+}
+
+/* ---------- TAB: INDICI DI BILANCIO ---------- */
+function tabIDX(){
+ const groups = [
+  ["Analisi economica",[
+   ["ROE — Redditività del capitale proprio","roe"],
+   ["ROI — Redditività del capitale investito","roi"],
+   ["ROS — Redditività lorda delle vendite","ros"],
+   ["Indice di rotazione degli impieghi","rotazione_impieghi"],
+   ["Indice di indebitamento (leverage)","leverage_indebitamento"],
+  ]],
+  ["Analisi patrimoniale",[
+   ["Rigidità degli impieghi","rigidita_impieghi"],
+   ["Elasticità degli impieghi","elasticita_impieghi"],
+   ["Indice di elasticità","indice_elasticita"],
+   ["Incidenza debiti a breve termine","incid_debiti_breve"],
+   ["Incidenza debiti a m/l termine","incid_debiti_ml"],
+   ["Autonomia finanziaria (PN/Impieghi)","autonomia_finanziaria"],
+   ["Dipendenza finanziaria","dipendenza_finanziaria"],
+   ["PN / Totale passività","pn_su_passivita"],
+   ["Capitale di terzi / PN","capterzi_su_pn"],
+  ]],
+  ["Solidità patrimoniale",[
+   ["Copertura globale delle immobilizzazioni","copertura_globale_immob"],
+   ["Autocopertura delle immobilizzazioni","autocopertura_immob"],
+   ["Copertura immob. con passività consolidate","copertura_immob_passcons"],
+  ]],
+  ["Liquidità",[
+   ["Current test (liquidità totale)","current_ratio"],
+   ["Quick test (liquidità primaria)","quick_ratio"],
+   ["Acid test (liquidità secondaria)","acid_test"],
+  ]],
+ ];
+ const c = el('div');
+
+ const chartsWrap = el('div');
+ chartsWrap.appendChild(el('div',{class:'chartwrap'}, el('h3',{},'Redditività — ROE, ROI, ROS'), el('canvas',{id:'chartRedd'})));
+ chartsWrap.appendChild(el('div',{class:'chartwrap'}, el('h3',{},'Liquidità — Current / Quick / Acid test'), el('canvas',{id:'chartLiq'})));
+ chartsWrap.appendChild(el('div',{class:'chartwrap'}, el('h3',{},'Indebitamento e autonomia finanziaria'), el('canvas',{id:'chartDebt'})));
+ c.appendChild(chartsWrap);
+
+ groups.forEach(([title,list])=>{
+  c.appendChild(el('h3',{},title));
+  const rows = list.map(([label,key])=>({label, values:DATA.idx[key]}));
+  c.appendChild(buildTable(rows, v=>fmtPct(v)));
+ });
+
+ const last=YEARS.length-1, first=0;
+ c.appendChild(comment('Commento ai risultati', [
+  `ROE ${YEARS[last]}: ${fmtPct(DATA.idx.roe[last])}, ${trendWord(DATA.idx.roe[first], DATA.idx.roe[last])} dal ${YEARS[first]}; valori molto elevati in alcuni anni riflettono un capitale proprio storicamente esiguo rispetto ai volumi, non un'anomalia di calcolo.`,
+  `ROI ${YEARS[last]}: ${fmtPct(DATA.idx.roi[last])} — misura la redditività del capitale investito indipendentemente dalla struttura finanziaria.`,
+  `Liquidità corrente (current test) ${YEARS[last]}: ${fmtNum2(DATA.idx.current_ratio[last])} — un valore ≥ 1 indica attivo corrente sufficiente a coprire le passività a breve; il quick test (${fmtNum2(DATA.idx.quick_ratio[last])}) esclude le rimanenze.`,
+  `Autonomia finanziaria (PN/Impieghi) ${YEARS[last]}: ${fmtPct(DATA.idx.autonomia_finanziaria[last])}, ${trendWord(DATA.idx.autonomia_finanziaria[first], DATA.idx.autonomia_finanziaria[last])} dal ${YEARS[first]} — più è alta, meno l'azienda dipende da capitale di terzi.`,
+  `Indice di indebitamento (Impieghi/CP) ${YEARS[last]}: ${fmtNum2(DATA.idx.leverage_indebitamento[last])}x, ${trendWord(DATA.idx.leverage_indebitamento[first], DATA.idx.leverage_indebitamento[last], false)} dal ${YEARS[first]}.`,
+ ]));
+
+ requestAnimationFrame(()=>{
+  lineChart('chartRedd',[
+   {label:'ROE', data:DATA.idx.roe, color:'#e8562b'},
+   {label:'ROI', data:DATA.idx.roi, color:'#1f8a53'},
+   {label:'ROS', data:DATA.idx.ros, color:'#c8790a'},
+  ], {pct:true});
+  lineChart('chartLiq',[
+   {label:'Current test', data:DATA.idx.current_ratio, color:'#e8562b'},
+   {label:'Quick test', data:DATA.idx.quick_ratio, color:'#1f8a53'},
+   {label:'Acid test', data:DATA.idx.acid_test, color:'#c23b3b'},
+  ]);
+  lineChart('chartDebt',[
+   {label:'Autonomia finanziaria', data:DATA.idx.autonomia_finanziaria, color:'#1f8a53'},
+   {label:'Dipendenza finanziaria', data:DATA.idx.dipendenza_finanziaria, color:'#c23b3b'},
+  ], {pct:true});
+ });
+ return c;
+}
+
+/* ---------- TAB: BALANCE SCORECARD (tutti gli anni) ---------- */
+const DSO_DEFAULT = {2023:22, 2024:12.4};
+const DPO_DEFAULT = {2023:24.8, 2024:23.28};
+
+function scoreCompute(){
+ const n = YEARS.length;
+ const res = {ebitda:[],ofn:[],pfn:[],red_ricavi:[],cop_interessi:[],sost_debito:[],leverage:[],comp_patrim:[]};
+ for(let i=0;i<n;i++){
+  const vp = DATA.ce.valore_produzione_netta[i], cp = DATA.bil.costo_produzione_tot[i];
+  const diff = vp - cp;
+  const ammI = DATA.bil.amm_immateriali[i]||0, ammM = DATA.bil.amm_materiali[i]||0;
+  const ebitda = diff + ammI + ammM;
+  const altriProvFin = DATA.bil.altri_proventi_fin[i]||0;
+  const oneriFin = -(DATA.bil.interessi_oneri_fin[i]||0);
+  const ofn = oneriFin - altriProvFin;
+  const debitiBanche = DATA.bil.debiti_banche_bt[i]||0;
+  const debitiFornit = DATA.bil.debiti_fornitori_bt[i]||0;
+  const debitiTrib = (DATA.bil.debiti_tributari_bt[i]||0) + (DATA.bil.debiti_previd_bt[i]||0);
+  const dispLiquide = DATA.bil.disp_liquide[i]||0;
+  const pfn = (debitiBanche + debitiFornit + debitiTrib) - dispLiquide;
+  const ricavi = DATA.bil.ricavi[i];
+  const capProprio = DATA.sp.capitale_proprio[i];
+  const totAttivo = DATA.sp.totale_attivita[i];
+  res.ebitda.push(ebitda); res.ofn.push(ofn); res.pfn.push(pfn);
+  res.red_ricavi.push(ebitda/ricavi);
+  res.cop_interessi.push(ofn/ricavi);
+  res.sost_debito.push(pfn/ebitda);
+  res.leverage.push(pfn/capProprio);
+  res.comp_patrim.push(capProprio/totAttivo);
+ }
+ return res;
+}
+
+function weighted(arr,i){
+ if(i===0) return arr[0];
+ return arr[i]*0.6 + arr[i-1]*0.4;
+}
+
+function scoreBand(metric, val){
+ if(val===null||val===undefined||isNaN(val)) return null;
+ switch(metric){
+  case 'red_ricavi': return val>0.07?3:(val>0.05?2:(val>0.025?1:0));
+  case 'cop_interessi': return val<=0.03?3:(val<0.05?2:(val<0.06?1:0));
+  case 'sost_debito': return val<=2.5?3:(val<4?2:(val<5?1:0));
+  case 'leverage': return val<=2?3:(val<4?2:(val<5?1:0));
+  case 'comp_patrim': return val>0.20?3:(val>0.10?2:(val>0.07?1:0));
+ }
+}
+
+function tabScorecard(){
+ const c = el('div');
+ const noteScore = el('p',{class:'note'},
+  'Il punteggio di ciascun anno pesa il valore dell’anno corrente al 60% e quello dell’anno precedente al 40%; per il 2018, primo anno disponibile, si usa solo il valore corrente. '+
+  'DSO e DPO sono dati dichiarativi non presenti nel bilancio: sono precompilati per 2023–2024 con i valori originali e sono modificabili per tutti gli anni.');
+
+ const S = scoreCompute();
+ const state = {dso:{}, dpo:{}};
+ YEARS.forEach(y=>{ state.dso[y]=DSO_DEFAULT[y]??null; state.dpo[y]=DPO_DEFAULT[y]??null; });
+
+ const wrap = el('div',{class:'tblwrap'});
+ const table = el('table'); table.id='scoreTable';
+ const thead=el('thead'); const trh=el('tr'); trh.appendChild(el('th',{},'Indicatore'));
+ YEARS.forEach(y=>trh.appendChild(el('th',{},String(y))));
+ thead.appendChild(trh); table.appendChild(thead);
+ const tbody = el('tbody'); table.appendChild(tbody);
+ wrap.appendChild(table); c.appendChild(wrap);
+
+ function addRow(label, values, fmtFn, cls){
+  const tr = el('tr',{class:cls||''});
+  tr.appendChild(el('td',{},label));
+  values.forEach(v=>tr.appendChild(el('td',{},fmtFn(v))));
+  tbody.appendChild(tr);
+  return tr;
+ }
+
+ addRow('EBITDA (€)', S.ebitda, fmt);
+ addRow('Oneri finanziari netti — OFN (€)', S.ofn, fmt);
+ addRow('Debiti finanziari netti — PFN (€)', S.pfn, fmt);
+
+ const scoreRowRefs = {};
+ function metricRow(label, key, fmtFn){
+  const tr = addRow(label, S[key], fmtFn, 'bold');
+  scoreRowRefs[key]=tr;
+ }
+ metricRow("Redditività dei ricavi (EBITDA/Ricavi)","red_ricavi",fmtPct);
+ metricRow("Copertura degli interessi (OFN/Ricavi)","cop_interessi",fmtPct);
+ metricRow("Sostenibilità del debito (PFN/EBITDA)","sost_debito",fmtNum2);
+ metricRow("Leverage (PFN/Capitale proprio)","leverage",fmtNum2);
+ metricRow("Composizione del patrimonio (CP/Attivo)","comp_patrim",fmtPct);
+
+ // DSO / DPO editable rows
+ const trDSO = el('tr'); trDSO.appendChild(el('td',{},'DSO (giorni, dichiarativo)'));
+ const trDPO = el('tr'); trDPO.appendChild(el('td',{},'DPO (giorni, dichiarativo)'));
+ const dsoInputs=[], dpoInputs=[];
+ YEARS.forEach(y=>{
+  const i1=el('input',{class:'dso',type:'number',step:'0.1'}); i1.value = state.dso[y]??'';
+  const i2=el('input',{class:'dso',type:'number',step:'0.1'}); i2.value = state.dpo[y]??'';
+  i1.addEventListener('input',()=>{ state.dso[y]= i1.value===''?null:parseFloat(i1.value); recompute(); });
+  i2.addEventListener('input',()=>{ state.dpo[y]= i2.value===''?null:parseFloat(i2.value); recompute(); });
+  const td1=el('td',{}); td1.appendChild(i1); trDSO.appendChild(td1);
+  const td2=el('td',{}); td2.appendChild(i2); trDPO.appendChild(td2);
+  dsoInputs.push(i1); dpoInputs.push(i2);
+ });
+ tbody.appendChild(trDSO); tbody.appendChild(trDPO);
+
+ // score rows
+ const scoreCells = {};
+ ['red_ricavi','cop_interessi','sost_debito','leverage','comp_patrim','dso','dpo'].forEach(k=>{
+  const labels = {red_ricavi:'Punti: redditività ricavi',cop_interessi:'Punti: copertura interessi',sost_debito:'Punti: sostenibilità debito',leverage:'Punti: leverage',comp_patrim:'Punti: composizione patrimonio',dso:'Punti: DSO (< 120gg → 1)',dpo:'Punti: DPO (< 100gg → 1)'};
+  const tr = addRow(labels[k], YEARS.map(()=>null), v=>v===null?'—':v, 'sec');
+  scoreCells[k]=tr;
+ });
+ const totRow = addRow('PUNTEGGIO TOTALE (max 17)', YEARS.map(()=>null), v=>v===null?'—':v, 'bold sec');
+ const esitoTr = el('tr'); esitoTr.appendChild(el('td',{},'Esito'));
+ YEARS.forEach(()=>esitoTr.appendChild(el('td',{})));
+ tbody.appendChild(esitoTr);
+
+ function recompute(){
+  YEARS.forEach((y,i)=>{
+   const wv = {};
+   ['red_ricavi','cop_interessi','sost_debito','leverage','comp_patrim'].forEach(k=>{ wv[k]=weighted(S[k],i); });
+   let total = 0; let anyMissing=false;
+   ['red_ricavi','cop_interessi','sost_debito','leverage','comp_patrim'].forEach(k=>{
+    const pts = scoreBand(k, wv[k]);
+    scoreCells[k].children[i+1].textContent = pts===null?'—':pts;
+    total += pts||0;
+   });
+   // DSO score
+   const dsoW = (i===0) ? state.dso[y] : ((state.dso[y]!=null && state.dso[YEARS[i-1]]!=null) ? state.dso[y]*0.6+state.dso[YEARS[i-1]]*0.4 : state.dso[y]);
+   const dpoW = (i===0) ? state.dpo[y] : ((state.dpo[y]!=null && state.dpo[YEARS[i-1]]!=null) ? state.dpo[y]*0.6+state.dpo[YEARS[i-1]]*0.4 : state.dpo[y]);
+   let dsoPts = null, dpoPts = null;
+   if(dsoW!=null){ dsoPts = dsoW<120?1:0; total+=dsoPts; }
+   if(dpoW!=null){ dpoPts = dpoW<100?1:0; total+=dpoPts; }
+   scoreCells.dso.children[i+1].textContent = dsoPts===null?'N/D':dsoPts;
+   scoreCells.dpo.children[i+1].textContent = dpoPts===null?'N/D':dpoPts;
+   totRow.children[i+1].textContent = total;
+   const esitoCell = esitoTr.children[i+1];
+   esitoCell.innerHTML='';
+   const ok = total>=9;
+   esitoCell.appendChild(el('span',{class:'pill '+(ok?'ok':'bad')}, ok?'AMMISSIBILE':'DA SOSPENDERE'));
+  });
+ }
+ recompute();
+
+ const totals = YEARS.map((y,i)=>parseInt(totRow.children[i+1].textContent)||0);
+ const last=YEARS.length-1, first=0;
+ const ammissibili = totals.filter(t=>t>=9).length;
+ c.appendChild(comment('Commento ai risultati', [
+  `Punteggio ${YEARS[last]}: ${totals[last]}/17 — esito "${totals[last]>=9?'AMMISSIBILE':'DA SOSPENDERE'}" (soglia di ammissibilità: 9/17).`,
+  `Su ${YEARS.length} anni analizzati, il punteggio risulta "AMMISSIBILE" in ${ammissibili} anni.`,
+  `L'indicatore più critico va individuato di anno in anno tra i 5 punteggi sopra: un valore 0 o 1 segnala l'area (redditività, copertura interessi, sostenibilità/leverage del debito o composizione del patrimonio) su cui intervenire prioritariamente.`,
+  `DSO/DPO incidono solo se compilati per l'anno e l'anno precedente; se mancanti mostrano "N/D" e non contribuiscono al punteggio (il massimo teorico resta 17, ma di fatto raggiungibile solo con entrambi i dati dichiarativi presenti).`,
+ ]));
+ const notes = el('div',{class:'notes-end'}); notes.appendChild(noteScore); c.appendChild(notes);
+ return c;
+}
+
+/* ---------- ROUTING ---------- */
+const TABS = [
+ ['sintesi','Sintesi', tabSintesi],
+ ['civilistico','Bilancio Civilistico', tabCivilistico],
+ ['bilancio','Bilancio Riclassificato', tabBilancio],
+ ['rf','Rendiconto Finanziario', tabRF],
+ ['idx','Indici di Bilancio', tabIDX],
+ ['scorecard','Balance Scorecard', tabScorecard],
+];
+const nav = document.getElementById('nav');
+const main = document.getElementById('main');
+function render(id){
+ main.innerHTML='';
+ nav.querySelectorAll('button').forEach(b=>b.classList.toggle('active', b.dataset.id===id));
+ const t = TABS.find(t=>t[0]===id);
+ main.appendChild(t[2]());
+}
+TABS.forEach(([id,label])=>{
+ const b = el('button',{},label); b.dataset.id=id;
+ b.addEventListener('click',()=>render(id));
+ nav.appendChild(b);
+});
+render('sintesi');
+</script>
+</body>
+</html>
